@@ -1,0 +1,5 @@
+# 统一换行符：Windows 服务器 clone 后 Dockerfile/脚本仍为 LF，避免 CRLF 破坏容器构建
+* text=auto eol=lf
+*.bat text eol=crlf
+*.png binary
+*.xlsx binary
