@@ -23,7 +23,8 @@ import java.io.IOException;
 @Service
 public class TemplateExcelService {
 
-    private static final String[] ROW_HEADERS = {"序号", "费用项目", "金额（元）", "类型", "备注"};
+    /** 类型列已移除：归类由导入时 AI 建议自动完成（SC-03），无需用户在模板里填写。 */
+    private static final String[] ROW_HEADERS = {"序号", "费用项目", "金额（元）", "备注"};
     /** ②当月销售利润 = 路客云订单导出可直接使用（30 列，与 generate_monthly_template.py 的 LK_HEADER 相同）。 */
     private static final String[] LK_HEADERS = {
             "房费(含佣)", "佣金", "房费(减佣)", "其他消费", "订单总收入(房费(含佣)+其他消费)", "订单总收入(减佣)",
@@ -33,7 +34,6 @@ public class TemplateExcelService {
             "占库存", "已排房", "计入统计"};
     /** 隐私列『预订人』『手机号』（0 基 12/13），灰底标注系统不读取（SC-05）。 */
     private static final int[] LK_PRIVACY_COLS = {12, 13};
-    private static final String[] COST_TYPES = {"fixed", "variable", "one_time"};
 
     public byte[] build() {
         try (Workbook wb = new XSSFWorkbook(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
@@ -53,14 +53,12 @@ public class TemplateExcelService {
             Row r = sheet.createRow(4 + i);
             r.createCell(0).setCellValue(i + 1);
             r.createCell(2).setCellValue(0);
-            r.createCell(3).setCellValue(COST_TYPES[i % 3]);
-            r.createCell(4).setCellValue("");
+            r.createCell(3).setCellValue("");
         }
         sheet.setColumnWidth(0, 6 * 256);
         sheet.setColumnWidth(1, 22 * 256);
         sheet.setColumnWidth(2, 14 * 256);
-        sheet.setColumnWidth(3, 12 * 256);
-        sheet.setColumnWidth(4, 20 * 256);
+        sheet.setColumnWidth(3, 20 * 256);
     }
 
     private void salesSheet(Workbook wb) {
