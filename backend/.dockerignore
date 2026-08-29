@@ -1,0 +1,7 @@
+target/
+logs/
+*.log
+storage/
+dev_stub_sidecar.py
+.idea/
+*.iml

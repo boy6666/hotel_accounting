@@ -1,0 +1,97 @@
+# ============================================================================
+# 酒店记账 · 经营分析 · AI 定价系统 —— Docker Compose 一键部署
+#
+# 服务拓扑（同一 compose 网络，仅 frontend 对外暴露端口）：
+#   frontend (nginx:80)  ──/api──▶  backend (Spring Boot:8081)  ──▶  sidecar (FastAPI:8001)
+#                                        │                              │
+#                                        ▼                              │
+#                                    mysql (3306)          storage-data 卷（共享
+#                                                          uploads/parsed，旁车按
+#                                                          file_path 直读）
+# 首次启动：cp .env.example .env 并修改密码 → docker compose up -d --build
+# ============================================================================
+services:
+
+  mysql:
+    image: mysql:8.0
+    container_name: hotel-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-change-me-root}
+      MYSQL_DATABASE: hotel_accounting
+      TZ: Asia/Shanghai
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    volumes:
+      - mysql-data:/var/lib/mysql
+      # 首次初始化自动执行（按文件名顺序）：建库建表 → 种子数据（admin/admin123）
+      - ./db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ./db/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h127.0.0.1 -uroot -p\"$$MYSQL_ROOT_PASSWORD\" --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+    # 默认不对宿主机暴露 3306，数据库只在 compose 网络内可达
+    # 如需本机调试可放开： ports: ["127.0.0.1:3306:3306"]
+
+  backend:
+    build: ./backend
+    container_name: hotel-backend
+    restart: unless-stopped
+    environment:
+      TZ: Asia/Shanghai
+      # 容器内必须监听 0.0.0.0（默认配置仅 127.0.0.1）
+      SERVER_ADDRESS: 0.0.0.0
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/hotel_accounting?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD:-change-me-root}
+      # 旁车走 compose 网络服务名
+      APP_SIDECAR_BASEURL: http://sidecar:8001
+      APP_JWT_SECRET: ${JWT_SECRET:-please-change-me-to-a-random-32-char-secret!!}
+    volumes:
+      # Excel 上传/解析结果持久化（默认相对路径 ./storage/* 即 /app/storage/*）
+      - storage-data:/app/storage
+    depends_on:
+      mysql:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8081/api/health >/dev/null 2>&1 || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 40s
+
+  sidecar:
+    build: ./sidecar
+    container_name: hotel-sidecar
+    restart: unless-stopped
+    environment:
+      TZ: Asia/Shanghai
+      # 可选：DeepSeek AI 解读；不填自动降级为纯统计
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+    volumes:
+      # 与 backend 挂同一卷、同一路径：主后端落盘的 file_path 旁车可直接读
+      - storage-data:/app/storage
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request;urllib.request.urlopen('http://127.0.0.1:8001/api/health')\" || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    # 仅 compose 网络内可达（无 JWT、只被主后端调用，符合 docs/05 边界），不暴露端口
+
+  frontend:
+    build: ./frontend
+    container_name: hotel-frontend
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-8080}:80"
+    depends_on:
+      - backend
+
+volumes:
+  mysql-data:
+  storage-data:

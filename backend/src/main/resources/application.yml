@@ -1,0 +1,52 @@
+server:
+  port: 8081
+  address: 127.0.0.1   # 生产收紧：仅本机可连，公网一律经 nginx 反代（见 nginx conf/hotel.conf）
+
+spring:
+  application:
+    name: hotel-accounting-backend
+  datasource:
+    url: jdbc:mysql://127.0.0.1:3306/hotel_accounting?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false
+    username: root
+    password: "1234"
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+  jackson:
+    time-zone: Asia/Shanghai
+  servlet:
+    multipart:
+      max-file-size: 20MB
+      max-request-size: 20MB
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+  global-config:
+    banner: false
+    db-config:
+      id-type: auto
+
+# 应用自定义配置
+app:
+  # 主后端对外基础路径（含上下文）；当前未启用上下文路径
+  # 旁车（FastAPI）内部服务地址
+  sidecar:
+    base-url: http://127.0.0.1:8001
+    timeout-ms: 5000
+  storage:
+    # Excel 上传临时目录与解析结果 JSON 目录（相对应用运行目录，可用绝对路径覆盖）
+    upload-dir: ./storage/uploads
+    parsed-dir: ./storage/parsed
+  jwt:
+    secret: hotel-accounting-2026-secret-key-please-change-me-0123456789abcdef
+    access-ttl-seconds: 7200      # <= 2h
+    refresh-ttl-seconds: 604800   # 7d
+  # 允许逻辑删除重导：见 ImportService 说明
+
+logging:
+  level:
+    root: INFO
+    com.hotel.accounting: INFO
+    com.baomidou: WARN

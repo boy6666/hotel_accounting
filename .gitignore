@@ -1,0 +1,42 @@
+# ===== 环境变量（含密码/密钥，禁止入库；模板见 .env.example）=====
+.env
+
+# ===== Java / Maven =====
+backend/target/
+backend/logs/
+backend/*.log
+backend/storage/
+
+# ===== Node / 前端 =====
+frontend/node_modules/
+frontend/dist/
+frontend/*.log
+frontend/*.err.log
+frontend/*.out.log
+frontend/.shots/*.png
+
+# ===== Python =====
+__pycache__/
+*.pyc
+sidecar/.pytest_cache/
+sidecar/logs/
+sidecar/*.log
+
+# ===== 日志（任意位置）=====
+*.err.log
+*.out.log
+logs/
+
+# ===== 本地数据 / 密钥 / 备份（与代码无关）=====
+*.xlsx
+*.pem
+backups/
+*.db
+*.sqlite
+
+# ===== IDE / 系统 =====
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db

@@ -1,0 +1,8 @@
+# Python 旁车（FastAPI）一期依赖 —— SC-01~SC-03
+fastapi>=0.115
+uvicorn[standard]>=0.30
+openpyxl>=3.1
+pydantic>=2.7
+requests>=2.31
+# 仅测试用
+pytest>=8

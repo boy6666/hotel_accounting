@@ -1,0 +1,969 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>捌宿 · 酒店经营系统（原型）</title>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.6.0/dist/echarts.min.js"></script>
+<style>
+/* ============ 主题变量（dataviz 验证色板） ============ */
+:root, :root[data-theme="light"] {
+  color-scheme: light;
+  --surface-1:  #fcfcfb;
+  --page-plane: #f9f9f7;
+  --ink:        #0b0b0b;
+  --ink-2:      #52514e;
+  --muted:      #898781;
+  --grid:       #e1e0d9;
+  --axis:       #c3c2b7;
+  --s1: #2a78d6; --s2: #008300; --s3: #e87ba4; --s4: #eda100;
+  --s5: #1baf7a; --s6: #eb6834; --s7: #4a3aa7; --s8: #e34948;
+  --shadow: 0 1px 3px rgba(11,11,11,.06), 0 1px 2px rgba(11,11,11,.04);
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --surface-1:  #1a1a19;
+  --page-plane: #0d0d0d;
+  --ink:        #ffffff;
+  --ink-2:      #c3c2b7;
+  --muted:      #898781;
+  --grid:       #2c2c2a;
+  --axis:       #383835;
+  --s1: #3987e5; --s2: #008300; --s3: #d55181; --s4: #c98500;
+  --s5: #199e70; --s6: #d95926; --s7: #9085e9; --s8: #e66767;
+  --shadow: 0 1px 3px rgba(0,0,0,.5);
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  background: var(--page-plane);
+  color: var(--ink);
+  font-size: 14px;
+  line-height: 1.55;
+}
+.num { font-variant-numeric: tabular-nums; }
+
+/* ============ 布局 ============ */
+.app { display: flex; min-height: 100vh; }
+.sidebar {
+  width: 228px; flex: 0 0 228px;
+  background: var(--surface-1);
+  border-right: 1px solid var(--grid);
+  padding: 18px 12px;
+  position: sticky; top: 0; height: 100vh; overflow-y: auto;
+}
+.brand { display: flex; align-items: center; gap: 8px; padding: 4px 8px 16px; }
+.brand .logo {
+  width: 26px; height: 26px; border-radius: 7px; flex: 0 0 26px;
+  background: linear-gradient(135deg, var(--s1), var(--s7));
+  color: #fff; display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 15px;
+}
+.brand b { font-size: 15px; }
+.brand small { display: block; color: var(--muted); font-size: 11px; font-weight: 400; }
+nav a {
+  display: flex; align-items: center; gap: 9px;
+  padding: 8px 10px; margin: 1px 0; border-radius: 8px;
+  color: var(--ink-2); text-decoration: none; font-size: 13px;
+  transition: background .12s, color .12s;
+}
+nav a .ic { width: 16px; text-align: center; opacity: .85; }
+nav a:hover { background: rgba(128,128,128,.08); color: var(--ink); }
+nav a.active { background: color-mix(in srgb, var(--s1) 14%, transparent); color: var(--ink); font-weight: 600; }
+.sidebar-foot { margin-top: 18px; padding: 8px 10px; color: var(--muted); font-size: 11px; border-top: 1px solid var(--grid); }
+
+.main { flex: 1; min-width: 0; padding: 20px 26px 60px; }
+.topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 18px;
+}
+.topbar h1 { font-size: 20px; margin: 0; }
+.topbar .sub { color: var(--muted); font-size: 12px; margin-top: 2px; }
+.top-actions { display: flex; gap: 8px; align-items: center; }
+.btn {
+  border: 1px solid var(--axis); background: var(--surface-1); color: var(--ink);
+  padding: 6px 12px; border-radius: 8px; font-size: 12.5px; cursor: pointer;
+}
+.btn.primary { background: var(--s1); border-color: var(--s1); color: #fff; }
+.btn.ghost { border-color: transparent; background: transparent; color: var(--muted); }
+.btn:hover { filter: brightness(1.04); }
+
+/* ============ 面板 & 卡片 ============ */
+.view { display: none; }
+.view.active { display: block; }
+.row { display: grid; gap: 14px; margin-bottom: 14px; }
+.row.cards { grid-template-columns: repeat(4, 1fr); }
+.row.cards3 { grid-template-columns: repeat(3, 1fr); }
+.row.cards6 { grid-template-columns: repeat(6, 1fr); }
+.card {
+  background: var(--surface-1); border-radius: 12px; padding: 14px 16px;
+  border: 1px solid var(--grid); box-shadow: var(--shadow);
+}
+.card h3 { margin: 0 0 10px; font-size: 13px; color: var(--ink-2); font-weight: 600; }
+.card .big { font-size: 26px; font-weight: 700; letter-spacing: -.3px; }
+.card .delta { font-size: 12px; margin-top: 4px; }
+.card .delta .up { color: var(--s2); }
+.card .delta .down { color: var(--s8); }
+.stat { }
+.stat .lbl { color: var(--muted); font-size: 12px; }
+.chart { width: 100%; }
+.chart.lg { height: 300px; }
+.chart.md { height: 250px; }
+.chart.sm { height: 210px; }
+
+/* ============ 表格 ============ */
+table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--grid); }
+th { color: var(--muted); font-weight: 600; font-size: 11.5px; white-space: nowrap; }
+th.num, td.num { text-align: right; }
+tr:hover td { background: rgba(128,128,128,.05); }
+.tag { display: inline-block; font-size: 10.5px; padding: 1px 7px; border-radius: 20px; }
+.tag.fixed { background: color-mix(in srgb, var(--s1) 12%, transparent); color: var(--s1); }
+.tag.var { background: color-mix(in srgb, var(--s5) 12%, transparent); color: var(--s5); }
+.tag.once { background: color-mix(in srgb, var(--s4) 16%, transparent); color: var(--s6); }
+.tag.warn { background: color-mix(in srgb, var(--s8) 13%, transparent); color: var(--s8); }
+.tag.ok { background: color-mix(in srgb, var(--s2) 12%, transparent); color: var(--s2); }
+/* 房态矩阵 */
+.rmg { border-collapse: collapse; }
+.rmg th, .rmg td { border-bottom: none; }
+.rmg td { font-size: 10.5px; }
+.rmg td.rmg-on  { background: color-mix(in srgb, var(--s1) 45%, transparent); color: var(--s1); border-radius: 4px; }
+.rmg td.rmg-off { color: color-mix(in srgb, var(--muted) 35%, transparent); }
+.rmg tbody tr:hover td { background: transparent; }
+
+/* ============ 提示条 / AI 解读 ============ */
+.notice {
+  display: flex; gap: 10px; align-items: flex-start;
+  background: color-mix(in srgb, var(--s1) 7%, var(--surface-1));
+  border: 1px solid color-mix(in srgb, var(--s1) 22%, var(--grid));
+  border-radius: 12px; padding: 12px 14px; font-size: 12.5px; margin-bottom: 14px;
+}
+.notice b { display: block; margin-bottom: 2px; }
+.ai-box {
+  background: color-mix(in srgb, var(--s7) 7%, var(--surface-1));
+  border: 1px solid color-mix(in srgb, var(--s7) 22%, var(--grid));
+  border-radius: 12px; padding: 14px 16px; font-size: 13px;
+}
+.ai-box .ai-head { display: flex; align-items: center; gap: 6px; color: var(--s7); font-weight: 600; margin-bottom: 6px; font-size: 12px; }
+
+/* ============ 计算器 ============ */
+.calc { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.calc .out { font-size: 20px; font-weight: 700; margin-top: 4px; }
+.calc label { display: block; color: var(--muted); font-size: 12px; margin-bottom: 4px; }
+.calc input[type=range] { width: 100%; accent-color: var(--s1); }
+.hl { color: var(--s1); }
+.tiers thead th { border-top: 1px solid var(--grid); }
+
+@media (max-width: 1000px) {
+  .row.cards, .row.cards3, .row.cards6 { grid-template-columns: repeat(2, 1fr); }
+  .sidebar { display: none; }
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- ============ 侧边栏 ============ -->
+<aside class="sidebar">
+  <div class="brand">
+    <div class="logo">捌</div>
+    <b>捌宿·经营系统<small>酒店记账 · 分析 · 定价</small></b>
+  </div>
+  <nav>
+    <a href="#dashboard" data-nav="dashboard" class="active"><span class="ic">▦</span>首页看板</a>
+    <a href="#cost" data-nav="cost"><span class="ic">▤</span>成本分析</a>
+    <a href="#channels" data-nav="channels"><span class="ic">≡</span>销售渠道</a>
+    <a href="#profit" data-nav="profit"><span class="ic">↗</span>利润分析</a>
+    <a href="#occupancy" data-nav="occupancy"><span class="ic">▥</span>房态·入住率</a>
+    <a href="#pricing" data-nav="pricing"><span class="ic">￥</span>定价·预测</a>
+    <a href="#breakeven" data-nav="breakeven"><span class="ic">⏱</span>回本测算</a>
+    <a href="#settings" data-nav="settings"><span class="ic">⚙</span>设置·基础数据</a>
+  </nav>
+  <div class="sidebar-foot">原型 v0.1 · 数据为示例<br>生成：2026-08</div>
+</aside>
+
+<!-- ============ 主区 ============ -->
+<main class="main">
+  <div class="topbar">
+    <div>
+      <h1 id="pageTitle">首页看板</h1>
+      <div class="sub" id="pageSub">2026年8月（截至8月22日）示例数据</div>
+    </div>
+    <div class="top-actions">
+      <input type="month" value="2026-08" class="btn" id="monthPick" style="font-family:inherit">
+      <button class="btn" id="themeBtn">🌓 暗色</button>
+      <button class="btn primary">⬆ 导入/上个月</button>
+    </div>
+  </div>
+
+  <!-- ========== 首页看板 ========== -->
+  <section class="view active" id="view-dashboard">
+    <div class="notice">
+      <div>🔔</div>
+      <div><b>对账提醒：8月房态累计 <span class="num">198</span> 间夜 vs 流水间夜 <span class="num">198</span>，差异 <span class="num">0</span> ✓ 已对上</b>
+      上月曾抓出「中介差房」3 间（协议/中介上报 27 间，房态实测 30 间）→ 已拦截漏计收入约 ¥960。详见「房态·入住率」。</div>
+    </div>
+    <div class="row cards">
+      <div class="card stat"><div class="lbl">本月营收</div><div class="big num">¥65,736</div><div class="delta"><span class="up">▲ 上月同期 +6.3%</span></div></div>
+      <div class="card stat"><div class="lbl">本月间夜</div><div class="big num">198</div><div class="delta">均价 <span class="num">¥332</span> / 间夜</div></div>
+      <div class="card stat"><div class="lbl">本月入住率</div><div class="big num">77.4%</div><div class="delta">8月共22天 · 10间</div></div>
+      <div class="card stat"><div class="lbl">本月现金净利</div><div class="big num">¥47,736</div><div class="delta"><span class="up">▲ 毛利率 72.6%</span></div></div>
+    </div>
+    <div class="row cards3">
+      <div class="card" style="grid-column: span 2">
+        <h3>收入 / 成本 / 利润 · 月度趋势</h3>
+        <div id="chDashTrend" class="chart lg"></div>
+      </div>
+      <div class="card">
+        <h3>8月费用构成</h3>
+        <div id="chDashCost" class="chart md"></div>
+      </div>
+    </div>
+    <div class="row cards3">
+      <div class="card">
+        <h3>线上 vs 线下 · 近期占比</h3>
+        <div id="chDashSplit" class="chart md"></div>
+      </div>
+      <div class="card">
+        <h3>渠道间夜占比（8月）</h3>
+        <div id="chDashChan" class="chart md"></div>
+      </div>
+      <div class="card">
+        <h3>回本进度</h3>
+        <div class="big num" style="font-size:34px">31.2%</div>
+        <div class="delta">已回笼 ¥62.4万 / 总投入 ¥200万</div>
+        <div style="height:8px;background:var(--grid);border-radius:4px;margin-top:10px;overflow:hidden">
+          <div style="width:31.2%;height:100%;background:linear-gradient(90deg,var(--s1),var(--s5));border-radius:4px"></div>
+        </div>
+        <div class="delta" style="margin-top:10px">当前节奏 ≈ 4.8 年回本 · 目标 2 年内需提价 / 压成本</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== 成本分析 ========== -->
+  <section class="view" id="view-cost">
+    <div class="row cards">
+      <div class="card stat"><div class="lbl">8月总成本</div><div class="big num">¥18,000</div><div class="delta"><span class="down">▼ 环比 -15.9%</span>（暑假工 7 月离职，电费回落）</div></div>
+      <div class="card stat"><div class="lbl">固定成本</div><div class="big num num">¥7,150</div><div class="delta">占比 39.7%</div></div>
+      <div class="card stat"><div class="lbl">变动成本</div><div class="big num">¥9,740</div><div class="delta">占比 54.1%</div></div>
+      <div class="card stat"><div class="lbl">单间成本</div><div class="big num">¥91</div><div class="delta">元 / 间夜（含固定+变动）</div></div>
+    </div>
+    <div class="row cards3">
+      <div class="card" style="grid-column: span 2">
+        <h3>月度成本趋势 · 固定 / 变动拆分</h3>
+        <div id="chCostTrend" class="chart lg"></div>
+      </div>
+      <div class="card">
+        <h3>类型占比（8月）</h3>
+        <div id="chCostType" class="chart md"></div>
+      </div>
+    </div>
+    <div class="card">
+      <h3>8月成本明细 <span class="tag once">含 1 项 新增/偶发</span></h3>
+      <table>
+        <thead><tr><th>费用项目</th><th class="num">金额（元）</th><th>类型</th><th class="num">环比</th><th>备注</th></tr></thead>
+        <tbody id="costTable"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ========== 销售渠道 ========== -->
+  <section class="view" id="view-channels">
+    <div class="row cards">
+      <div class="card stat"><div class="lbl">8月总间夜</div><div class="big num">198</div><div class="delta">线上 130 · 线下 68</div></div>
+      <div class="card stat"><div class="lbl">线上收入</div><div class="big num">¥44,574</div><div class="delta">占比 67.8%</div></div>
+      <div class="card stat"><div class="lbl">线下收入</div><div class="big num">¥21,162</div><div class="delta">占比 32.2%</div></div>
+      <div class="card stat"><div class="lbl">混合同比</div><div class="big num">+6.3%</div><div class="delta">线上 +5.1% · 线下 +8.7%</div></div>
+    </div>
+    <div class="row cards3">
+      <div class="card">
+        <h3>各渠道间夜（8月）</h3>
+        <div id="chChanBar" class="chart md"></div>
+      </div>
+      <div class="card">
+        <h3>线上 / 线下收入（8月）</h3>
+        <div id="chChanDonut" class="chart md"></div>
+      </div>
+      <div class="card">
+        <h3>线上 / 线下 · 月度趋势</h3>
+        <div id="chChanTrend" class="chart md"></div>
+      </div>
+    </div>
+    <div class="card">
+      <h3>渠道明细（8月，到手价口径）</h3>
+      <table>
+        <thead><tr>
+          <th>渠道</th><th class="num">间夜</th><th class="num">收入（元）</th><th class="num">均价（到手）</th>
+          <th class="num">佣金率</th><th class="num">均挂牌价</th><th>对比上月</th>
+        </tr></thead>
+        <tbody>
+          <tr><td>线上 · 携程</td><td class="num">66</td><td class="num">20,460</td><td class="num">310</td><td class="num">12%</td><td class="num">352</td><td><span class="tag ok">▲ 216%</span></td></tr>
+          <tr><td>线上 · 美团</td><td class="num">38</td><td class="num">11,780</td><td class="num">310</td><td class="num">12%</td><td class="num">352</td><td><span class="tag ok">▲ 8.6%</span></td></tr>
+          <tr><td>线上 · 飞猪/去哪儿</td><td class="num">18</td><td class="num">5,544</td><td class="num">308</td><td class="num">10%</td><td class="num">342</td><td><span class="tag ok">▲ 3.4%</span></td></tr>
+          <tr><td>线上 · 抖音/其它</td><td class="num">8</td><td class="num">2,424</td><td class="num">303</td><td class="num">10%</td><td class="num">337</td><td><span class="tag ok">▲ 14.3%</span></td></tr>
+          <tr><td>线下 · 前台散客</td><td class="num">52</td><td class="num">17,680</td><td class="num">340</td><td class="num">—</td><td class="num">—</td><td><span class="tag ok">▲ 4.0%</span></td></tr>
+          <tr><td>线下 · 协议/中介</td><td class="num">16</td><td class="num">3,728</td><td class="num">233</td><td class="num">—</td><td class="num">—</td><td><span class="tag ok">▲ 23.1%</span></td></tr>
+        </tbody>
+      </table>
+      <div class="notice" style="margin:12px 0 0">
+        <div>💡</div>
+        <div><b>佣金口径</b>：线上收入统一记「到手价」，挂牌价按佣金率自动反算（出场价 = 到手价 ÷ (1 − 佣金率)）。可对接 OTA 报表导入自动比对。</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== 利润分析 ========== -->
+  <section class="view" id="view-profit">
+    <div class="row cards">
+      <div class="card stat"><div class="lbl">8月现金净利</div><div class="big num">¥47,736</div><div class="delta"><span class="up">▲ 上月 +</span></div></div>
+      <div class="card stat"><div class="lbl">净利率</div><div class="big num">72.6%</div><div class="delta">（含/未含房租折旧见设定）</div></div>
+      <div class="card stat"><div class="lbl">单间净利</div><div class="big num">¥241</div><div class="delta">元 / 间夜</div></div>
+      <div class="card stat"><div class="lbl">单间成本</div><div class="big num">¥91</div><div class="delta">元 / 间夜</div></div>
+    </div>
+    <div class="row cards3">
+      <div class="card" style="grid-column: span 2">
+        <h3>收入 / 成本 / 利润 · 月度</h3>
+        <div id="chProfit" class="chart lg"></div>
+      </div>
+      <div class="card">
+        <h3>同比环比（8月）</h3>
+        <div id="chProfitYoY" class="chart md"></div>
+      </div>
+    </div>
+    <div class="card">
+      <h3>月度经营关键指标</h3>
+      <table>
+        <thead><tr><th>月份</th><th class="num">间夜</th><th class="num">均价</th><th class="num">收入</th><th class="num">成本</th><th class="num">现金净利</th><th class="num">单间净利</th></tr></thead>
+        <tbody id="profitTable"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ========== 房态·入住率 ========== -->
+  <section class="view" id="view-occupancy">
+    <div class="row cards">
+      <div class="card stat"><div class="lbl">8月入住率（至22日）</div><div class="big num">90.0%</div><div class="delta">198 / 220 可售间夜</div></div>
+      <div class="card stat"><div class="lbl">7月入住率</div><div class="big num">86.5%</div><div class="delta"><span class="up">▲ 6月 77.7%</span></div></div>
+      <div class="card stat"><div class="lbl">月度最高</div><div class="big num">90.0%</div><div class="delta">2026-08</div></div>
+      <div class="card stat"><div class="lbl">对账差异</div><div class="big num">0</div><div class="delta">房态 vs 流水 · 本月 ✓</div></div>
+    </div>
+    <div class="card" style="margin-bottom:14px">
+      <h3 style="margin:0 0 10px">8月 · 房间×日期 入住矩阵（按具体房间登记，<span style="color:var(--s1)">▮</span>=入住 / <span style="color:var(--muted)">·</span>=空房）</h3>
+      <div style="overflow-x:auto"><table class="rmg"><thead><tr><th>房号</th><th class="num" style="text-align:center;min-width:22px;padding:3px 2px">1</th><th class="num" style="text-align:center;min-width:22px;padding:3px 2px">2</th><th class="num" style="text-align:center;min-width:22px;padding:3px 2px">3</th><th class="num" style="text-align:center;min-width:22px;padding:3px 2px">4</th><th class="num" style="text-align:center;min-width:22px;padding:3px 2px">5</th><th class="num" style="text-align:center;min-width:22px;padding:3px 2px">6</th><th class="num" style="text-align:center;min-width:22px;padding:3px 2px">7</th><th class="num" style="text-align:center;min-width:22px;padding:3px 2px">8</th><th class="num" style="text-align:center;min-width:22px;padding:3px 2px">9</th><th class="num" style="text-align:center;min-width:22px;padding:3px 2px">10</th><th class="num" style="text-align:center;min-width:22px;padding:3px 2px">11</th><th class="num" style="text-align:center;min-width:22px;padding:3px 2px">12</th><th class="num" style="text-align:center;min-width:22px;padding:3px 2px">13</th><th class="num" style="text-align:center;min-width:22px;padding:3px 2px">14</th><th class="num" style="text-align:center;min-width:22px;padding:3px 2px">15</th><th class="num" style="text-align:center;min-width:22px;padding:3px 2px">16</th><th class="num" style="text-align:center;min-width:22px;padding:3px 2px">17</th><th class="num" style="text-align:center;min-width:22px;padding:3px 2px">18</th><th class="num" style="text-align:center;min-width:22px;padding:3px 2px">19</th><th class="num" style="text-align:center;min-width:22px;padding:3px 2px">20</th><th class="num" style="text-align:center;min-width:22px;padding:3px 2px">21</th><th class="num" style="text-align:center;min-width:22px;padding:3px 2px">22</th></tr></thead><tbody><tr><td><b>101</b><br><span style="color:var(--muted);font-size:10px">大床房</span></td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="101·8月1日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="101·8月2日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="101·8月3日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="101·8月4日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="101·8月5日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="101·8月6日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="101·8月7日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="101·8月8日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="101·8月9日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="101·8月10日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="101·8月11日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="101·8月12日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="101·8月13日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="101·8月14日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="101·8月15日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="101·8月16日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="101·8月17日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="101·8月18日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="101·8月19日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="101·8月20日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="101·8月21日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="101·8月22日 入住">▮</td></tr><tr><td><b>102</b><br><span style="color:var(--muted);font-size:10px">大床房</span></td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="102·8月1日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="102·8月2日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="102·8月3日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="102·8月4日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="102·8月5日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="102·8月6日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="102·8月7日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="102·8月8日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="102·8月9日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="102·8月10日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="102·8月11日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="102·8月12日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="102·8月13日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="102·8月14日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="102·8月15日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="102·8月16日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="102·8月17日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="102·8月18日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="102·8月19日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="102·8月20日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="102·8月21日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="102·8月22日 入住">▮</td></tr><tr><td><b>103</b><br><span style="color:var(--muted);font-size:10px">大床房</span></td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="103·8月1日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="103·8月2日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="103·8月3日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="103·8月4日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="103·8月5日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="103·8月6日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="103·8月7日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="103·8月8日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="103·8月9日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="103·8月10日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="103·8月11日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="103·8月12日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="103·8月13日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="103·8月14日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="103·8月15日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="103·8月16日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="103·8月17日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="103·8月18日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="103·8月19日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="103·8月20日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="103·8月21日 入住">▮</td><td class="rmg-cell rmg-off" style="text-align:center;padding:3px 2px;min-width:22px" title="103·8月22日 空房">·</td></tr><tr><td><b>104</b><br><span style="color:var(--muted);font-size:10px">大床房</span></td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="104·8月1日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="104·8月2日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="104·8月3日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="104·8月4日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="104·8月5日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="104·8月6日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="104·8月7日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="104·8月8日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="104·8月9日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="104·8月10日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="104·8月11日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="104·8月12日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="104·8月13日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="104·8月14日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="104·8月15日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="104·8月16日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="104·8月17日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="104·8月18日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="104·8月19日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="104·8月20日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="104·8月21日 入住">▮</td><td class="rmg-cell rmg-off" style="text-align:center;padding:3px 2px;min-width:22px" title="104·8月22日 空房">·</td></tr><tr><td><b>105</b><br><span style="color:var(--muted);font-size:10px">大床房</span></td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="105·8月1日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="105·8月2日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="105·8月3日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="105·8月4日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="105·8月5日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="105·8月6日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="105·8月7日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="105·8月8日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="105·8月9日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="105·8月10日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="105·8月11日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="105·8月12日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="105·8月13日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="105·8月14日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="105·8月15日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="105·8月16日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="105·8月17日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="105·8月18日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="105·8月19日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="105·8月20日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="105·8月21日 入住">▮</td><td class="rmg-cell rmg-off" style="text-align:center;padding:3px 2px;min-width:22px" title="105·8月22日 空房">·</td></tr><tr><td><b>201</b><br><span style="color:var(--muted);font-size:10px">双床房</span></td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="201·8月1日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="201·8月2日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="201·8月3日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="201·8月4日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="201·8月5日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="201·8月6日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="201·8月7日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="201·8月8日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="201·8月9日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="201·8月10日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="201·8月11日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="201·8月12日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="201·8月13日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="201·8月14日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="201·8月15日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="201·8月16日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="201·8月17日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="201·8月18日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="201·8月19日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="201·8月20日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="201·8月21日 入住">▮</td><td class="rmg-cell rmg-off" style="text-align:center;padding:3px 2px;min-width:22px" title="201·8月22日 空房">·</td></tr><tr><td><b>202</b><br><span style="color:var(--muted);font-size:10px">双床房</span></td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="202·8月1日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="202·8月2日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="202·8月3日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="202·8月4日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="202·8月5日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="202·8月6日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="202·8月7日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="202·8月8日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="202·8月9日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="202·8月10日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="202·8月11日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="202·8月12日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="202·8月13日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="202·8月14日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="202·8月15日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="202·8月16日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="202·8月17日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="202·8月18日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="202·8月19日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="202·8月20日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="202·8月21日 入住">▮</td><td class="rmg-cell rmg-off" style="text-align:center;padding:3px 2px;min-width:22px" title="202·8月22日 空房">·</td></tr><tr><td><b>203</b><br><span style="color:var(--muted);font-size:10px">双床房</span></td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="203·8月1日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="203·8月2日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="203·8月3日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="203·8月4日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="203·8月5日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="203·8月6日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="203·8月7日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="203·8月8日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="203·8月9日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="203·8月10日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="203·8月11日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="203·8月12日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="203·8月13日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="203·8月14日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="203·8月15日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="203·8月16日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="203·8月17日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="203·8月18日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="203·8月19日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="203·8月20日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="203·8月21日 入住">▮</td><td class="rmg-cell rmg-off" style="text-align:center;padding:3px 2px;min-width:22px" title="203·8月22日 空房">·</td></tr><tr><td><b>204</b><br><span style="color:var(--muted);font-size:10px">双床房</span></td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="204·8月1日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="204·8月2日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="204·8月3日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="204·8月4日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="204·8月5日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="204·8月6日 入住">▮</td><td class="rmg-cell rmg-off" style="text-align:center;padding:3px 2px;min-width:22px" title="204·8月7日 空房">·</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="204·8月8日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="204·8月9日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="204·8月10日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="204·8月11日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="204·8月12日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="204·8月13日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="204·8月14日 入住">▮</td><td class="rmg-cell rmg-off" style="text-align:center;padding:3px 2px;min-width:22px" title="204·8月15日 空房">·</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="204·8月16日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="204·8月17日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="204·8月18日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="204·8月19日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="204·8月20日 入住">▮</td><td class="rmg-cell rmg-off" style="text-align:center;padding:3px 2px;min-width:22px" title="204·8月21日 空房">·</td><td class="rmg-cell rmg-off" style="text-align:center;padding:3px 2px;min-width:22px" title="204·8月22日 空房">·</td></tr><tr><td><b>205</b><br><span style="color:var(--muted);font-size:10px">双床房</span></td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="205·8月1日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="205·8月2日 入住">▮</td><td class="rmg-cell rmg-off" style="text-align:center;padding:3px 2px;min-width:22px" title="205·8月3日 空房">·</td><td class="rmg-cell rmg-off" style="text-align:center;padding:3px 2px;min-width:22px" title="205·8月4日 空房">·</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="205·8月5日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="205·8月6日 入住">▮</td><td class="rmg-cell rmg-off" style="text-align:center;padding:3px 2px;min-width:22px" title="205·8月7日 空房">·</td><td class="rmg-cell rmg-off" style="text-align:center;padding:3px 2px;min-width:22px" title="205·8月8日 空房">·</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="205·8月9日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="205·8月10日 入住">▮</td><td class="rmg-cell rmg-off" style="text-align:center;padding:3px 2px;min-width:22px" title="205·8月11日 空房">·</td><td class="rmg-cell rmg-off" style="text-align:center;padding:3px 2px;min-width:22px" title="205·8月12日 空房">·</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="205·8月13日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="205·8月14日 入住">▮</td><td class="rmg-cell rmg-off" style="text-align:center;padding:3px 2px;min-width:22px" title="205·8月15日 空房">·</td><td class="rmg-cell rmg-off" style="text-align:center;padding:3px 2px;min-width:22px" title="205·8月16日 空房">·</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="205·8月17日 入住">▮</td><td class="rmg-cell rmg-on" style="text-align:center;padding:3px 2px;min-width:22px" title="205·8月18日 入住">▮</td><td class="rmg-cell rmg-off" style="text-align:center;padding:3px 2px;min-width:22px" title="205·8月19日 空房">·</td><td class="rmg-cell rmg-off" style="text-align:center;padding:3px 2px;min-width:22px" title="205·8月20日 空房">·</td><td class="rmg-cell rmg-off" style="text-align:center;padding:3px 2px;min-width:22px" title="205·8月21日 空房">·</td><td class="rmg-cell rmg-off" style="text-align:center;padding:3px 2px;min-width:22px" title="205·8月22日 空房">·</td></tr></tbody></table></div>
+    </div>
+    <div class="row cards3">
+      <div class="card" style="grid-column: span 2">
+        <h3>每日入住房间数（8月） · 趋势</h3>
+        <div id="chDaily" class="chart lg"></div>
+      </div>
+      <div class="card">
+        <h3>星期入住率（7月均值）</h3>
+        <div id="chWeekday" class="chart md"></div>
+      </div>
+    </div>
+    <div class="card">
+      <h3>房态 / 流水对账（8月）<span class="tag ok">差异 0 ✓</span></h3>
+      <table>
+        <thead><tr><th>数据源</th><th class="num">间夜</th><th class="num">金额（元）</th><th class="num">差异</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>每日房态累计（登记）</td><td class="num">198</td><td class="num">—</td><td class="num"></td><td>按日登记自动汇总</td></tr>
+          <tr><td>流水间夜（销售表）</td><td class="num">198</td><td class="num">65,736</td><td class="num"></td><td>含线下协议/中介</td></tr>
+          <tr><td><b>差值</b></td><td class="num"><b>0</b></td><td class="num"><b>0</b></td><td class="num"><b>0</b></td><td>上个月曾差 3 间 → 已拦下中介差房</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ========== 定价·预测 ========== -->
+  <section class="view" id="view-pricing">
+    <div class="row cards">
+      <div class="card stat"><div class="lbl">8月实际均价</div><div class="big num">¥332</div><div class="delta">按到手价</div></div>
+      <div class="card stat"><div class="lbl">未来14天 · 建议均价</div><div class="big num hl">¥356</div><div class="delta"><span class="up">▲ +7%</span> AI 反映周末/开学季</div></div>
+      <div class="card stat"><div class="lbl">8/23–25 台风影响</div><div class="big num">-12%</div><div class="delta">建议临时降价锁量</div></div>
+      <div class="card stat"><div class="lbl">下月（9月）预测入住率</div><div class="big num">78%</div><div class="delta">开学后回落 · 周末仍旺</div></div>
+    </div>
+    <div class="row cards3">
+      <div class="card" style="grid-column: span 2">
+        <h3>未来14天建议价（分档：平/周末）</h3>
+        <div id="chPrice" class="chart md"></div>
+      </div>
+      <div class="card">
+        <h3>档位价目表</h3>
+        <table class="tiers">
+          <thead><tr><th>档位</th><th class="num">线上</th><th class="num">前台</th></tr></thead>
+          <tbody>
+            <tr><td>淡季平日</td><td class="num">288</td><td class="num">320</td></tr>
+            <tr><td>淡季周末</td><td class="num">348</td><td class="num">380</td></tr>
+            <tr><td>旺季平日</td><td class="num">332</td><td class="num">368</td></tr>
+            <tr><td>旺季周末</td><td class="num">398</td><td class="num">438</td></tr>
+            <tr><td>节假日</td><td class="num">428</td><td class="num">468</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="row" style="grid-template-columns: 1fr 1fr">
+      <div class="card">
+        <h3>目标倒推定价</h3>
+        <div class="calc">
+          <div>
+            <label>目标月收入（元）</label>
+            <input type="range" id="calcRev" min="40000" max="120000" step="1000" value="80000">
+            <div class="num" id="calcRevV">80,000</div>
+          </div>
+          <div>
+            <label>目标入住率（%）</label>
+            <input type="range" id="calcOcc" min="50" max="100" step="1" value="85">
+            <div class="num" id="calcOccV">85%</div>
+          </div>
+          <div>
+            <label>可售房间数</label>
+            <input type="range" id="calcRooms" min="4" max="20" step="1" value="10">
+            <div class="num" id="calcRoomsV">10 间</div>
+          </div>
+          <div>
+            <label>需要达到的均价（元/间夜）</label>
+            <div class="out num hl" id="calcPriceOut">¥310</div>
+            <div style="font-size:11px;color:var(--muted)">= 目标收入 ÷（房间数×月天数×入住率）</div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <h3>AI 解读（接入 DeepSeek 后自动生成）</h3>
+        <div class="ai-box">
+          <div class="ai-head">✦ 捌宿·智能定价分析</div>
+          <div style="font-size:12.5px">
+            8/23–25 有台风过境，预计入住率下滑 15–20%，已自动建议临时降价约 <b>12%</b>（¥356 → ¥313）锁定出租量；26 日起需求修复并进入开学季，<b>最后两个周末</b>建议按旺季周末价 ¥398 执行，9 月首周回落至平日档。<br><br>
+            按目标月收入 ¥80,000、入住率 85%、10 间房测算，需均价 <b>¥310</b>，当前实际 ¥332 —— 已达标，可小幅让利冲量。
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== 回本测算 ========== -->
+  <section class="view" id="view-breakeven">
+    <div class="row cards">
+      <div class="card stat"><div class="lbl">总投入</div><div class="big num">¥200万</div><div class="delta">建造 150 · 装修 40 · 设备 10</div></div>
+      <div class="card stat"><div class="lbl">其中贷款</div><div class="big num">¥120万</div><div class="delta">3.8% · 10 年 · 月供 ¥12,056</div></div>
+      <div class="card stat"><div class="lbl">预计回本</div><div class="big num" id="paybackYr">≈ 4.8 年</div><div class="delta">当前收入/成本节奏</div></div>
+      <div class="card stat"><div class="lbl">目标（2年内回本）</div><div class="big num">差 ¥21,667/月</div><div class="delta">需月净现金流 ≥ ¥83,333</div></div>
+    </div>
+    <div class="row cards3">
+      <div class="card" style="grid-column: span 2">
+        <h3>累计现金流 · 回本点（含贷款月供）</h3>
+        <div id="chCash" class="chart lg"></div>
+      </div>
+      <div class="card">
+        <h3>贷款还贷结构</h3>
+        <div id="chLoan" class="chart md"></div>
+      </div>
+    </div>
+    <div class="row" style="grid-template-columns: 1.25fr 1fr">
+      <div class="card">
+        <h3>敏感性表 · 年均价 × 入住率 → 预计回本年限</h3>
+        <div id="chSens" class="chart md"></div>
+        <div class="notice" style="margin:10px 0 0">
+          <div>💡</div>
+          <div><b>要让回本压进 2 年</b>，得在「均价 ≥ ¥320 + 入住率 ≥ 85% + 单间成本 ≤ ¥90」三条同时达成。当前 8 月已接近，但全年淡旺季平均需继续拉均价。</div>
+        </div>
+      </div>
+      <div class="card">
+        <h3>回本测算参数（可调）</h3>
+        <table>
+          <tbody id="beParams"></tbody>
+        </table>
+        <div class="calc" style="margin-top:10px">
+          <div>
+            <label>月固定成本（元，含房租）</label>
+            <input type="range" id="beFixed" min="5000" max="40000" step="500" value="24000">
+            <div class="num" id="beFixedV">24,000</div>
+          </div>
+          <div>
+            <label>月均入住率目标（%）</label>
+            <input type="range" id="beOccTarget" min="40" max="100" step="1" value="85">
+            <div class="num" id="beOccTargetV">85%</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== 设置 · 基础数据 ========== -->
+  <section class="view" id="view-settings">
+    <div class="notice">
+      <div>⚙</div>
+      <div><b>主数据自动化优先：费用项、渠道、房号在「月度 Excel 导入」时自动识别建档，无需手工维护</b>
+      本页只维护导入无法自动获知的信息：酒店配置、房间字典、档位价目、渠道佣金率、导入模板。
+      每次导入确认时会自动：识别费用名 → 新建费用项 → 记住归类规则；每日房态登记到未建档房号 → 自动建房号。</div>
+    </div>
+
+    <div class="row">
+      <div class="card">
+        <h3>酒店配置</h3>
+        <table>
+          <tr><td style="width:150px">酒店名称</td><td colspan="3"><input class="btn" value="捌宿轻居（样例）" style="width:min(360px,100%);text-align:left;font-family:inherit"></td></tr>
+          <tr><td>城市（天气预测）</td><td><input class="btn" value="杭州（样例）" style="width:min(280px,100%);text-align:left;font-family:inherit"> <span style="color:var(--muted)">可留空：预测自动降级为「日历+节假日」</span></td></tr>
+          <tr><td>默认线上佣金率</td><td><input class="btn" type="number" value="12" step="0.5" style="width:76px"> % <span style="color:var(--muted)">（新渠道默认；线上 = 到手价 × (1+r) 挂牌）</span></td></tr>
+          <tr><td>每月营业天数常数</td><td><input class="btn" type="number" value="30.4" step="0.1" style="width:76px"> <span style="color:var(--muted)">（目标倒推：单价 = 目标收入 ÷ (房间数 × 天数 × 入住率)）</span></td></tr>
+          <tr><td>修改密码</td><td><input class="btn" type="password" value="********" readonly style="width:min(220px,100%)"> <button class="btn ghost">修改</button></td></tr>
+        </table>
+        <div style="margin-top:10px"><button class="btn primary">保存配置</button> <button class="btn ghost">恢复默认</button></div>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+          <h3 style="margin:0">房间管理（可售房字典 · 具体到每个房号）</h3>
+          <div><button class="btn primary">＋ 新增房间</button> <button class="btn ghost">编辑</button></div>
+        </div>
+        <table>
+          <thead><tr><th>房号</th><th>房型</th><th>楼层</th><th>状态</th><th>排序</th><th>操作</th></tr></thead>
+          <tbody>
+            <tr><td><b>101</b></td><td>大床房</td><td>1F</td><td><span class="tag ok">启用</span></td><td class="num">1</td><td><button class="btn ghost">编辑</button> <button class="btn ghost">停用</button></td></tr>
+            <tr><td><b>102</b></td><td>大床房</td><td>1F</td><td><span class="tag ok">启用</span></td><td class="num">2</td><td><button class="btn ghost">编辑</button> <button class="btn ghost">停用</button></td></tr>
+            <tr><td><b>103</b></td><td>大床房</td><td>1F</td><td><span class="tag ok">启用</span></td><td class="num">3</td><td><button class="btn ghost">编辑</button> <button class="btn ghost">停用</button></td></tr>
+            <tr><td><b>104</b></td><td>大床房</td><td>1F</td><td><span class="tag ok">启用</span></td><td class="num">4</td><td><button class="btn ghost">编辑</button> <button class="btn ghost">停用</button></td></tr>
+            <tr><td><b>105</b></td><td>大床房</td><td>1F</td><td><span class="tag ok">启用</span></td><td class="num">5</td><td><button class="btn ghost">编辑</button> <button class="btn ghost">停用</button></td></tr>
+            <tr><td><b>201</b></td><td>双床房</td><td>2F</td><td><span class="tag ok">启用</span></td><td class="num">6</td><td><button class="btn ghost">编辑</button> <button class="btn ghost">停用</button></td></tr>
+            <tr><td><b>202</b></td><td>双床房</td><td>2F</td><td><span class="tag ok">启用</span></td><td class="num">7</td><td><button class="btn ghost">编辑</button> <button class="btn ghost">停用</button></td></tr>
+            <tr><td><b>203</b></td><td>双床房</td><td>2F</td><td><span class="tag ok">启用</span></td><td class="num">8</td><td><button class="btn ghost">编辑</button> <button class="btn ghost">停用</button></td></tr>
+            <tr><td><b>204</b></td><td>双床房</td><td>2F</td><td><span class="tag ok">启用</span></td><td class="num">9</td><td><button class="btn ghost">编辑</button> <button class="btn ghost">停用</button></td></tr>
+            <tr><td><b>205</b></td><td>双床房</td><td>2F</td><td><span class="tag ok">启用</span></td><td class="num">10</td><td><button class="btn ghost">编辑</button> <button class="btn ghost">停用</button></td></tr>
+          </tbody>
+        </table>
+        <div style="color:var(--muted);font-size:12px;margin-top:8px">可售房间数 = 启用房间数（本例 10）自动推导，供入住率 / 目标倒推 / 回本共用；
+        Excel「每日房态」登记到未建档房号时自动建档；「停用」= 维修/长包不参与可售。</div>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+          <h3 style="margin:0">档位价目（定价建议的基准 · 需手工维护）</h3>
+          <div><button class="btn primary">＋ 新增档位</button> <button class="btn ghost">编辑</button> <button class="btn ghost">批量导入</button></div>
+        </div>
+        <table>
+          <thead><tr><th>名称</th><th class="num">基准价</th><th>适用日</th><th>生效区间</th><th>启用</th><th>排序</th></tr></thead>
+          <tbody>
+            <tr><td>平日价</td><td class="num">¥260</td><td>工作日</td><td>长期</td><td><span class="tag ok">启用</span></td><td class="num">1</td></tr>
+            <tr><td>周末价</td><td class="num">¥360</td><td>周末</td><td>长期</td><td><span class="tag ok">启用</span></td><td class="num">2</td></tr>
+            <tr><td>节假日价</td><td class="num">¥520</td><td>节假日</td><td>2026-09-30 ~ 2026-10-07</td><td><span class="tag ok">启用</span></td><td class="num">3</td></tr>
+          </tbody>
+        </table>
+        <div style="color:var(--muted);font-size:12px;margin-top:8px">「临近日建议价」按 档位基准价 × 预测入住率/节假日 系数 在引擎内自动推算，可人工修改后锁定。</div>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+          <h3 style="margin:0">渠道佣金率（渠道本身由导入自动建档 · 此处只调佣金/状态）</h3>
+          <div><button class="btn ghost">＋ 手动新增渠道</button></div>
+        </div>
+        <table>
+          <thead><tr><th>渠道</th><th>类型</th><th class="num">当前佣金率</th><th>更新时间</th><th>状态</th><th>操作</th></tr></thead>
+          <tbody>
+            <tr><td>携程</td><td><span class="tag var">线上</span></td><td class="num">12%</td><td>2026-07</td><td><span class="tag ok">启用</span></td><td><button class="btn ghost">改佣金</button></td></tr>
+            <tr><td>美团</td><td><span class="tag var">线上</span></td><td class="num">12%</td><td>2026-07</td><td><span class="tag ok">启用</span></td><td><button class="btn ghost">改佣金</button></td></tr>
+            <tr><td>飞猪 / 去哪儿</td><td><span class="tag var">线上</span></td><td class="num">10%</td><td>2026-07</td><td><span class="tag ok">启用</span></td><td><button class="btn ghost">改佣金</button></td></tr>
+            <tr><td>抖音 / 其它</td><td><span class="tag var">线上</span></td><td class="num">10%</td><td>2026-07</td><td><span class="tag ok">启用</span></td><td><button class="btn ghost">改佣金</button></td></tr>
+            <tr><td>前台散客</td><td><span class="tag">线下</span></td><td class="num">0%</td><td>—</td><td><span class="tag ok">启用</span></td><td><button class="btn ghost">改佣金</button></td></tr>
+            <tr><td>协议 / 中介</td><td><span class="tag">线下</span></td><td class="num">0%</td><td>—</td><td><span class="tag ok">启用</span></td><td><button class="btn ghost">改佣金</button></td></tr>
+          </tbody>
+        </table>
+        <div style="color:var(--muted);font-size:12px;margin-top:8px">线上渠道在月销售导入时若出现未识别渠道名，提示归属后再自动建档。</div>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="card">
+        <h3>月度 Excel 模板下载（用「月度记账模板.xlsx」记账，一键进系统）</h3>
+        <table>
+          <thead><tr><th>Sheet</th><th>内容</th><th>去向</th></tr></thead>
+          <tbody>
+            <tr><td>当月成本</td><td>每条 = 费用名 + 金额 + 备注；按「固定 / 变动 / 一次性」归类</td><td>智能归类 → 月度成本</td></tr>
+            <tr><td>每日房态</td><td>每天一行 = 日期 + 入住房间数</td><td>每日房态 · 入住率</td></tr>
+            <tr><td>当月销售利润</td><td>每天一行 = 渠道 + 间夜 + 到手价收入</td><td>渠道流水 → 对账 / 佣金 / 挂牌</td></tr>
+          </tbody>
+        </table>
+        <div style="margin-top:10px">
+          <button class="btn primary">⬇ 下载模板</button>
+          <button class="btn ghost">查看模板生成脚本 generate_monthly_template.py</button>
+          <span style="color:var(--muted);font-size:12px;margin-left:8px">模板由本项目脚本自动生成，改表头即升级格式。</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+</div>
+
+<script>
+/* ============ EchoCharts 主题 ============ */
+const PAL = {
+  light: { surface:'#fcfcfb', page:'#f9f9f7', ink:'#0b0b0b', ink2:'#52514e', muted:'#898781',
+           grid:'#e1e0d9', axis:'#c3c2b7',
+           c:['#2a78d6','#008300','#e87ba4','#eda100','#1baf7a','#eb6834','#4a3aa7','#e34948'],
+           cDark:['#256abf','#008300','#d55181','#c98500','#199e70','#d95926','#9085e9','#e66767'] },
+  dark:  { surface:'#1a1a19', page:'#0d0d0d', ink:'#ffffff', ink2:'#c3c2b7', muted:'#898781',
+           grid:'#2c2c2a', axis:'#383835',
+           c:['#3987e5','#008300','#d55181','#c98500','#199e70','#d95926','#9085e9','#e66767'],
+           cDark:['#6da7ec','#1baf7a','#e87ba4','#eda100','#1baf7a','#eb6834','#9085e9','#e66767'] }
+};
+function P() { return document.documentElement.dataset.theme === 'dark' ? PAL.dark : PAL.light; }
+
+const charts = {};
+function E(id) { const el = document.getElementById(id); const c = echarts.init(el); charts[id] = c; return c; }
+
+function baseOpt() {
+  const p = P();
+  return {
+    textStyle:{ fontFamily:'system-ui, sans-serif', color:p.ink2 },
+    grid:{ left:48, right:18, top:34, bottom:28 },
+    tooltip:{ trigger:'axis', backgroundColor:p.surface, borderColor:p.axis,
+              textStyle:{ color:p.ink, fontSize:12 },
+              axisPointer:{ lineStyle:{ color:p.axis } } },
+    legend:{ top:0, textStyle:{ color:p.ink2, fontSize:12 }, itemWidth:14, itemHeight:8 },
+    xAxis:{ type:'category', axisLine:{ lineStyle:{ color:p.axis } },
+            axisLabel:{ color:p.muted }, axisTick:{ show:false } },
+    yAxis:{ type:'value', splitLine:{ lineStyle:{ color:p.grid } },
+            axisLabel:{ color:p.muted }, nameTextStyle:{ color:p.muted } }
+  };
+}
+function lineChart(id, cats, series, yName, stacked) {
+  const p = P(); const o = baseOpt();
+  o.xAxis.data = cats;
+  o.yAxis.name = yName || '';
+  o.series = series.map((s,i) => ({
+    name: s.name, type: s.type || 'line', stack: stacked ? s.stack : undefined,
+    data: s.data, smooth: s.smooth !== false, symbol:'circle', symbolSize:6,
+    lineStyle:{ width:2, color:s.color, type:s.dash },
+    itemStyle:{ color:s.color },
+    areaStyle: s.area ? { color: hexA(s.color, 0.12) } : undefined,
+    barWidth: s.bw || undefined,
+    markLine: s.markLine || undefined,
+    barMaxWidth: 18,
+    emphasis:{ focus:'series' },
+    showBackground: s.type==='bar'
+  }));
+  E(id).setOption(o);
+}
+function donut(id, data, name) {
+  const p = P(); const o = baseOpt();
+  o.tooltip = { trigger:'item', backgroundColor:p.surface, borderColor:p.axis, textStyle:{ color:p.ink, fontSize:12 } };
+  o.legend = { orient:'vertical', right:4, top:'middle', textStyle:{ color:p.ink2, fontSize:12 } };
+  o.grid = undefined;
+  o.series = [{
+    type:'pie', radius:['46%','70%'], center:['38%','52%'],
+    label:{ show:false }, quiet:false,
+    itemStyle:{ borderRadius:3, borderColor:p.surface, borderWidth:2 },
+    data: data.map((d,i)=>({ name:d[0], value:d[1], itemStyle:{ color:p.c[i % p.c.length] } }))
+  }];
+  E(id).setOption(o);
+}
+function hexA(hex, a) {
+  const n = parseInt(hex.slice(1), 16);
+  return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${a})`;
+}
+function themeCharts() {
+  const els = document.querySelectorAll('.chart');
+  [...new Set(Object.keys(charts))].forEach(k => charts[k] && charts[k].dispose());
+  Object.keys(charts).forEach(k => { try { charts[k].dispose(); } catch(e){} });
+  Object.keys(charts).forEach(k => { try { charts[k] = null; } catch(e){} });
+  for (const k in charts) delete charts[k];
+  renderAll();
+}
+
+/* ============ 数据 ============ */
+const MONTHS = ['1月','2月','3月','4月','5月','6月','7月','8月'];
+const rev  = [56730,47424,59898,64480,74704,79048,89780,65736];
+const cost  = [16200,15400,17800,16900,18500,19800,21400,18000];
+const nights= [186,152,201,208,232,241,268,198];
+const adr   = rev.map((r,i)=>Math.round(r/nights[i]));
+const prof  = rev.map((r,i)=>r-cost[i]);
+const onlineN = [121,98,131,137,153,157,176,130];
+const offlineN=nights.map((n,i)=>n-onlineN[i]);
+
+const CHANNELS = [
+  ['携程',66,20460,310,0.12], ['美团',38,11780,310,0.12], ['飞猪/去哪儿',18,5544,308,0.10],
+  ['抖音/其它',8,2424,303,0.10], ['前台散客',52,17680,340,0], ['协议/中介',16,3728,233,0]
+];
+
+/* ============ 渲染 ============ */
+function renderAll() {
+  renderDashboard(); renderCost(); renderChannels(); renderProfit();
+  renderOccupancy(); renderPricing(); renderBreakeven();
+}
+
+function renderDashboard() {
+  const p = P();
+  lineChart('chDashTrend', MONTHS, [
+    { name:'收入', data:rev, color:p.c[0], area:true },
+    { name:'利润', data:prof, color:p.c[5] },
+    { name:'成本', data:cost, color:p.c[2] },
+  ], '元');
+  donut('chDashCost', [['电费/水费',2715],['布草',4248],['早餐',2248],['日用品/矿泉水',1783],['其它',7006]]);
+  // 线上/线下 近期占比（8月 vs 7月）
+  lineChart('chDashSplit', ['7月','8月'], [
+    { name:'线上', data:[176,130], color:p.c[0], invert:false },
+    { name:'线下', data:[92,68], color:p.c[5] }
+  ], '间夜');
+  donut('chDashChan', [['携程',66],['美团',38],['飞猪',18],['抖音',8],['前台',52],['协议/中介',16]]);
+}
+
+function renderCost() {
+  const p = P();
+  const fixedM = rev.map(()=>null);
+  lineChart('chCostTrend', MONTHS, [
+    { name:'变动成本', data:[9780,9200,10800,11400,12500,13300,14200,9740], color:p.c[5], stack:'c', area:true },
+    { name:'固定成本', data:[6420,6200,7000,5500,6000,6500,7200,7150], color:p.c[1], stack:'c', area:true },
+  ], '元');
+  donut('chCostType', [['变动',54.1],['固定',39.7],['一次性',6.2]]);
+
+  const rows = [
+    ['电费',2115,'固定',-12.0,'夏旺回落'], ['水费',600,'固定',-12.0,'—'],
+    ['刷单',136,'一次性',+8.0,'偶发'], ['日用品',1139,'变动',+3.2,'—'],
+    ['布草',4248,'变动',+1.5,'—'], ['早餐',2248,'变动',+2.1,'—'],
+    ['暑假工',0,'一次性',-100.0,'7月已结清，9月看班'], ['矿泉水',644,'变动',+0.5,'—'],
+    ['拍照费用',480,'一次性',0,'—'], ['投影会员',39,'固定',0,'—'],
+    ['门禁/房卡',120,'一次性',0,'新增'], ['设施增加*维修',1200,'一次性',+200.0,'空调保养'],
+    ['流量',300,'固定',0,'—'], ['其它杂项',860,'变动',-22.0,'—'],
+    ['接送打车',520,'变动',0,'—'], ['水果饮料点心',630,'变动',0,'—'],
+    ['花草绿植',150,'一次性',0,'—'],
+  ];
+  const tags = { 固定:'fixed', 变动:'var', 一次性:'once' };
+  document.getElementById('costTable').innerHTML = rows.map((r,i)=>{
+    const deltaCls = (typeof r[3]==='number' && r[3] < 0) ? 'ok' : (r[3] > 5 ? 'down' : '');
+    return `<tr><td>${r[0]}</td><td class="num">${r[1].toLocaleString()}</td>
+      <td><span class="tag ${tags[r[2]]}">${r[2]}</span></td>
+      <td class="num" style="color:${r[3]<0?'var(--s2)':(r[3]>5?'var(--s8)':'var(--ink-2)')}">${r[3]>0?'+':''}${r[3]}%</td>
+      <td style="color:var(--muted)">${r[4]||''}</td></tr>`;
+  }).join('');
+}
+
+function renderChannels() {
+  const p = P();
+  lineChart('chChanBar', CHANNELS.map(c=>c[0]), [
+    { name:'间夜', data:CHANNELS.map(c=>c[1]), type:'bar', color:p.c[0], bw:26, smooth:false }
+  ], '间夜');
+  donut('chChanDonut', [['线上',44574],['线下',21162]]);
+  lineChart('chChanTrend', MONTHS, [
+    { name:'线上', data:rev.map((r,i)=>onlineN[i]*(adr[i]*0.98)), color:p.c[0], area:true },
+    { name:'线下', data:rev.map((r,i)=>offlineN[i]*(adr[i]*1.02)), color:p.c[5], area:true }
+  ], '元');
+}
+
+function renderProfit() {
+  const p = P();
+  lineChart('chProfit', MONTHS, [
+    { name:'收入', data:rev, color:p.c[0], area:true },
+    { name:'利润', data:prof, color:p.c[5] },
+    { name:'成本', data:cost, color:p.c[2] },
+  ], '元');
+  lineChart('chProfitYoY', ['收入','成本','净利润'], [
+    { name:'8月', data:[65736,18000,47736], type:'bar', color:p.c[0], bw:18, smooth:false },
+    { name:'7月', data:[89780,21400,68380], type:'bar', color:p.c[1], bw:18, smooth:false },
+    { name:'去年同月', data:[59800,17200,42600], type:'bar', color:p.c[3], bw:18, smooth:false },
+  ], '元');
+
+  const tbl = nights.map((n,i)=>`<tr><td>${i+1}月</td><td class="num">${n}</td><td class="num">${adr[i]}</td>
+    <td class="num">${rev[i].toLocaleString()}</td><td class="num">${cost[i].toLocaleString()}</td>
+    <td class="num" style="color:var(--s2);font-weight:600">${prof[i].toLocaleString()}</td>
+    <td class="num">${Math.round(prof[i]/n)}</td></tr>`).join('');
+  document.getElementById('profitTable').innerHTML = tbl;
+}
+
+function renderOccupancy() {
+  const p = P();
+  // 8月每日入住（1-22日）
+  const days = [], dval = [];
+  for (let d=1; d<=22; d++) {
+    days.push(String(d));
+    const wd = new Date(2026,7,d).getDay();
+    const wknd = (wd===6||wd===0);
+    const base = wknd ? 0.95 : 0.8;
+    dval.push(16);
+  }
+  // 手工铺：贴近 198/22 = 9 间夜/日
+  const daily = [7,8,9,8,9,10,10, 8,9,8,9,10,10,10, 8,9,9,8,9,10,10,10]; // 22天
+  const dlabels = daily.map((_,i)=>`${i+1}`);
+  lineChart('chDaily', dlabels, [
+    { name:'入住间数', data:daily, color:p.c[0], area:true, markLine:{
+        silent:true, data:[{ yAxis: daily.reduce((a,b)=>a+b,0)/daily.length, name:'均值 9.0' }] } }
+  ], '间', false);
+
+  lineChart('chWeekday', ['周一','周二','周三','周四','周五','周六','周日'], [
+    { name:'入住率', data:[78,74,80,85,92,96,88], type:'bar', color:p.c[0], bw:30, smooth:false }
+  ], '%');
+}
+
+function renderPricing() {
+  const p = P();
+  // 8/23 → 9/5 建议价
+  const days = [], price = [], occ = [];
+  const seq = [
+    [313,'台'], [298,'台'], [313,'台'], [356,'平'], [356,'平'], [398,'末'], [398,'末'],
+    [356,'平'], [356,'平'], [398,'末'], [398,'末'], [356,'平'], [332,'平'], [332,'平'],
+  ];
+  seq.forEach((s,i)=>{
+    const d = new Date(2026,7,23+i);
+    days.push(`${d.getMonth()+1}/${d.getDate()}`);
+    price.push(s[0]);
+    occ.push((s[1]==='末'?92:s[1]==='台'?70:84));
+  });
+  const o2 = baseOpt();
+  o2.xAxis.data = days;
+  o2.series = [{
+    name:'建议价', type:'line', data: price, smooth:false, symbol:'circle', symbolSize:7,
+    lineStyle:{ width:2, color:p.c[5] }, itemStyle:{ color:p.c[5] },
+    label:{ show:true, position:'top', color:p.muted, fontSize:11, formatter:'¥{c}' },
+    markLine:{ silent:true, symbol:'none', data:[{ yAxis:332, name:'平日档 ¥332' }],
+      lineStyle:{ color:p.c[3], type:'dashed' }, label:{ color:p.muted, fontSize:11 } }
+  }];
+  E('chPrice').setOption(o2);
+}
+
+/* ============ 目标倒推计算器 ============ */
+const calc = { rev:80000, occ:85, rooms:10 };
+function calcUpdate() {
+  calc.rev   = +document.getElementById('calcRev').value;
+  calc.occ   = +document.getElementById('calcOcc').value;
+  calc.rooms = +document.getElementById('calcRooms').value;
+  document.getElementById('calcRevV').textContent  = calc.rev.toLocaleString();
+  document.getElementById('calcOccV').textContent  = calc.occ + '%';
+  document.getElementById('calcRoomsV').textContent = calc.rooms + ' 间';
+  const need = Math.round(calc.rev / (calc.rooms * 30.4 * calc.occ/100));
+  document.getElementById('calcPriceOut').textContent = '¥' + need.toLocaleString();
+}
+['calcRev','calcOcc','calcRooms'].forEach(id=>document.getElementById(id).addEventListener('input', calcUpdate));
+calcUpdate();
+
+/* ============ 回本测算 ============ */
+function renderBreakeven() {
+  const p = P();
+  const INV = 2000000, LOAN = 1200000, RATE = 0.038, YEARS = 10;
+  const monthly = Math.round(LOAN * (RATE/12) / (1 - Math.pow(1+RATE/12, -YEARS*12)));
+  document.querySelector('#view-breakeven').dataset.monthly = monthly;
+  document.querySelectorAll('#view-breakeven .card .delta').length;
+
+  // 累计现金流：月净流入
+  const netMonthly = 47736 - monthly + 16000; // 净利 - 月供 + 其它(折旧回加/房租另计调整) → 示例
+  const cash = [ -INV ];
+  const months = [];
+  for (let m=1; m<=60; m++) {
+    months.push(String(m));
+    cash.push(Math.round(cash[m-1] + netMonthly));
+  }
+  const crossing = cash.findIndex((v,i)=> i>0 && cash[i]>=0 && cash[i-1]<0);
+  const payYr = crossing ? (crossing/12).toFixed(1) : '>5';
+  document.getElementById('paybackYr').textContent = `≈ ${payYr} 年`;
+
+  lineChart('chCash', months, [
+    { name:'累计现金流', data:cash, color:p.c[3], markLine:{
+        silent:true, symbol:'none',
+        data:[ { yAxis:0, label:{ formatter:'回本点', position:'end' } } ] } }
+  ], '元（万）');
+
+  // 贷款 — 逐年本金/利息（简化等额本息）
+  const bal = [], intY = [], prinY = [];
+  let b = LOAN;
+  for (let y=1; y<=10; y++) {
+    const yrInt = monthly*12 - (LOAN/10);
+    intY.push(Math.round(LOAN*RATE*(1 - (y-1)/10)));
+    prinY.push(Math.round(LOAN/10));
+  }
+  lineChart('chLoan', ['1年','2年','3年','4年','5年','6年','7年','8年','9年','10年'], [
+    { name:'本金', data:prinY, type:'bar', color:p.c[0], stack:'l', bw:16, smooth:false },
+    { name:'利息', data:intY, type:'bar', color:p.c[3], stack:'l', bw:16, smooth:false },
+  ], '元');
+
+  // 敏感性表面（回本年限）
+  const adrS = [280,300,320,340], occS = [0.7,0.75,0.8,0.85,0.9];
+  const sens = [];
+  occS.forEach((o,oi)=>{
+    adrS.forEach((a,ai)=>{
+      const yrNights = 10*365*o;
+      const revM = yrNights*a;                                   // 年收入
+      const costM = yrNights*91 + 24000*12;                      // 单间成本+固定
+      const netY = revM - costM - monthly*12;                    // 年净现金流
+      const years = Math.max(1.3, Math.round(INV/netY*10)/10);
+      sens.push([ai, oi, years]);
+    });
+  });
+  const oS = baseOpt();
+  oS.tooltip = { formatter:(param)=>`均价 ¥${adrS[param.value[0]]} × 入住率 ${(occS[param.value[1]]*100).toFixed(0)}% → ${param.value[2]} 年回本` };
+  oS.xAxis = { type:'category', data:adrS.map(a=>'¥'+a), axisLine:{ lineStyle:{ color:p.axis } }, axisLabel:{ color:p.muted } };
+  oS.yAxis = { type:'category', data:occS.map(o=>Math.round(o*100)+'%'), axisLine:{ lineStyle:{ color:p.axis } }, axisLabel:{ color:p.muted } };
+  oS.visualMap = { min:1, max:6, calculable:false, orient:'horizontal', left:'center', bottom:0,
+    inRange:{ color:[p.c[5], p.c[4], p.c[3], p.c[6], p.c[8] ] },
+    textStyle:{ color:p.muted } };
+  oS.series = [{ type:'heatmap', data:sens, label:{ show:true, color:p.ink, fontSize:11, formatter:(param)=>param.value[2] },
+    itemStyle:{ borderColor:p.surface, borderWidth:2 } }];
+  E('chSens').setOption(oS);
+
+  // 参数表
+  const beRows = [
+    ['建造/装修/设备','¥'+(INV/10000).toFixed(0)+'万', '一次性'],
+    ['贷款本金','¥120万 · 3.8% · 10年', '月供 ¥12,056'],
+    ['月固定成本（房租+人工等）','¥24,000','可调滑杆'],
+    ['单间变动成本','¥91 / 间夜','含水电/布草/早餐'],
+    ['当前月净现金流','约 ¥51,792','净利−月供+折旧回加'],
+  ];
+  document.getElementById('beParams').innerHTML = beRows.map(r=>
+    `<tr><td>${r[0]}</td><td>${r[1]}</td><td style="color:var(--muted);font-size:11px">${r[2]}</td></tr>`).join('');
+
+  document.getElementById('beFixedV').textContent = '24,000';
+  document.getElementById('beOccTargetV').textContent = '85%';
+}
+document.getElementById('beFixed').addEventListener('input', e=>{
+  document.getElementById('beFixedV').textContent = (+e.target.value).toLocaleString();
+});
+document.getElementById('beOccTarget').addEventListener('input', e=>{
+  document.getElementById('beOccTargetV').textContent = e.target.value + '%';
+});
+
+/* ============ 导航 ============ */
+const TITLES = {
+  dashboard:'首页看板', cost:'成本分析', channels:'销售渠道', profit:'利润分析',
+  occupancy:'房态·入住率', pricing:'定价·预测', breakeven:'回本测算', settings:'设置·基础数据'
+};
+const SUBS = {
+  dashboard:'2026年8月（截至8月22日）示例数据',
+  cost:'2026年8月 · 费用项按「固定 / 变动 / 一次性」拆分',
+  channels:'2026年8月 · 佣金按到手价口径',
+  profit:'2026年（1–8月）按月统计',
+  occupancy:'2026年8月 · 每日房态自动登记',
+  pricing:'未来14天 · 基于日历/天气/历史的统计模型 + DeepSeek 解读',
+  breakeven:'建造+装修+设备 200万 · 贷款 120万 · 回本测算',
+  settings:'主数据自动化优先 · 只维护导入无法自动获知的信息'
+};
+document.querySelectorAll('nav a').forEach(a=>{
+  a.addEventListener('click', e=>{
+    e.preventDefault();
+    document.querySelectorAll('nav a').forEach(x=>x.classList.remove('active'));
+    a.classList.add('active');
+    const key = a.dataset.nav;
+    document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+    document.getElementById('view-'+key).classList.add('active');
+    document.getElementById('pageTitle').textContent = TITLES[key];
+    document.getElementById('pageSub').textContent = SUBS[key];
+    Object.values(charts).forEach(c=>c && c.resize());
+  });
+});
+
+/* ============ 主题开关 ============ */
+document.getElementById('themeBtn').addEventListener('click', ()=>{
+  const root = document.documentElement;
+  root.dataset.theme = root.dataset.theme === 'dark' ? 'light' : 'dark';
+  document.getElementById('themeBtn').textContent = root.dataset.theme==='dark' ? '☀ 亮色' : '🌓 暗色';
+  themeCharts();
+});
+
+/* ============ 冷启动渲染 ============ */
+window.addEventListener('load', ()=>{ renderAll(); });
+</script>
+</body>
+</html>
