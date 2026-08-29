@@ -4,6 +4,10 @@
 -- 约定：所有主数据（费用项/渠道/档位/全局配置）用户可增删改；金额一律 DECIMAL。
 -- ============================================================================
 
+-- 容器首次初始化时 mysql 客户端可能以 latin1 读入本文件，导致中文双重编码；
+-- SET NAMES 强制本会话按 utf8mb4 解析后续字符串。
+SET NAMES utf8mb4;
+
 CREATE DATABASE IF NOT EXISTS hotel_accounting
   DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE hotel_accounting;

@@ -85,7 +85,7 @@ public class SettingsService {
         if (cfg == null) {
             cfg = new HotelConfig();
             cfg.setId(1L);
-            cfg.setHotelName("我的酒店");
+            cfg.setHotelName("");
             cfg.setDefaultCommissionRate(DEFAULT_RATE);
             hotelConfigMapper.insert(cfg);
         }
