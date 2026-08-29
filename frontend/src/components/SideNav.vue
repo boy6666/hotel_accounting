@@ -5,6 +5,8 @@ import { useMonthStore } from '@/stores/month'
 
 const route = useRoute()
 const monthStore = useMonthStore()
+// 版本号：发版时改这里（当前 v0.0.5 —— 房型识别全链路 + 成本空行修复）
+const APP_VERSION = 'v0.0.5'
 const NAV = [
   { name: 'dashboard', path: '/', label: '首页看板', ic: '▦' },
   { name: 'costs', path: '/costs', label: '成本分析', ic: '▤' },
@@ -33,6 +35,10 @@ const NAV = [
         <span class="ic">{{ n.ic }}</span>{{ n.label }}
       </router-link>
     </nav>
-    <div class="sidebar-foot">捌宿轻居 · 联机会计系统<br />当前经营月：{{ monthStore.month }}</div>
+    <div class="sidebar-foot">
+      捌宿轻居 · 联机会计系统<br />
+      当前经营月：{{ monthStore.month }}<br />
+      当前版本：{{ APP_VERSION }}
+    </div>
   </aside>
 </template>
