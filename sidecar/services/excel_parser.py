@@ -125,9 +125,9 @@ def _parse_cost_sheet(ws) -> list[dict]:
         amt = parse_amount(raw_amt)
         if is_blank(name_val) and is_blank(raw_amt):
             continue
-        name_s = str(name_val).strip()
+        name_s = "" if name_val is None else str(name_val).strip()
         if not name_s:
-            continue
+            continue  # 无名称（模板预填 0 金额的空行）→ 不是费用
         if "合计" in normalize_text(name_s):
             break  # 合计行（行尾）
         if is_blank(raw_amt):
@@ -416,6 +416,8 @@ def _find_lukeyun_header(ws):
                 cols.setdefault("checkin", c)
             elif "离店" in t or "退房" in t:
                 cols.setdefault("checkout", c)
+            elif (t.startswith("房型") and "分组" not in t) or "床型" in t:
+                cols.setdefault("room_type", c)           # 房型（≠房型分组）
             elif "房间" in t:
                 cols.setdefault("room", c)
             elif "已排房" in t:
@@ -459,6 +461,7 @@ def _parse_lukeyun_sheet(ws, month):
       - 收入 = 订单总收入(减佣)（房费减佣 + 其他消费，缺则该列回退房费(减佣)）
       - 计入范围 = 只看『计入统计=是』（列缺失默认全计入）
       - 每日房态 = 由『已排房=是 且 房间号具体』的订单逐夜推导，整月矩阵含 0 房日
+      - 房型 = 房号 → 房型 列（首个非空），随 rooms 返回供建档
       - 跨月订单按『入住时间所在月』落账
     隐私红线（SC-05）：绝不上行『预订人/手机号』列——本函数根本不读它们。
     """
@@ -470,9 +473,11 @@ def _parse_lukeyun_sheet(ws, month):
     rv_fb, cm_col = cols.get("revenue_fallback"), cols.get("commission")
     ck_col, co_col = cols.get("checkin"), cols.get("checkout")
     rm_col, as_col, ct_col = cols.get("room"), cols.get("assigned"), cols.get("counted")
+    rt_col = cols.get("room_type")
 
     chans = {}            # 渠道(归一) → 聚合
     room_by_day = {}      # YYYY-MM-DD → set(roomNo)
+    room_type_by_no = {}  # roomNo → 房型（导出同房号房型一致；取首个非空）
     skipped = {"nocount": 0, "notinmonth": 0, "norev": 0, "norooms": 0}
     for rr in range(header_row + 1, ws.max_row + 1):
         ch_raw = clean_cell(ws.cell(rr, ch_col).value)
@@ -525,6 +530,12 @@ def _parse_lukeyun_sheet(ws, month):
             rooms = [t for t in _split_rooms(ws.cell(rr, rm_col).value) if _ROOM_NO_RE.match(t)]
             if not rooms:
                 skipped["norooms"] += 1
+            if rt_col is not None:
+                rt = clean_cell(ws.cell(rr, rt_col).value)
+                if rt is not None and str(rt).strip():
+                    for t in rooms:
+                        if not room_type_by_no.get(t):
+                            room_type_by_no[t] = str(rt).strip()
             d0 = datetime.strptime(ckin, "%Y-%m-%d").date()
             for i in range(nights):
                 ds = (d0 + timedelta(days=i)).isoformat()
@@ -552,7 +563,7 @@ def _parse_lukeyun_sheet(ws, month):
     logger.info("lukeyun parse month=%s channels=%d nights=%d revenue=%.2f occ=%d skipped=%s",
                 month, len(ch_rows), sum(c["nights"] for c in ch_rows),
                 round(sum(c["revenue"] for c in ch_rows), 2), occ_total, skipped)
-    return ch_rows, occ_rows, occ_total
+    return ch_rows, occ_rows, occ_total, room_type_by_no
 
 
 # ------------------------------------------------------------------ 汇总 ---
@@ -595,7 +606,7 @@ def parse_workbook(file_path: str, month: str, template_type: str | None = None)
         ch_sheet = sheets["channel"]
         if _find_lukeyun_header(ch_sheet)[0] is not None:
             # 路客云订单式：渠道流水 + 每日房态都由订单推导（每日房态表可省略，用户拍板口径）
-            ch_rows, occ_rows, occ_total = _parse_lukeyun_sheet(ch_sheet, month)
+            ch_rows, occ_rows, occ_total, room_types = _parse_lukeyun_sheet(ch_sheet, month)
             occ_layout = "lukeyun_derived"
         else:
             if sheets["occupancy"] is None:
@@ -604,6 +615,7 @@ def parse_workbook(file_path: str, month: str, template_type: str | None = None)
                                HTTP_UNPROCESSABLE)
             ch_rows = _parse_channel_sheet(ch_sheet)
             occ_rows, occ_layout, occ_total = _parse_occupancy_sheet(sheets["occupancy"], month)
+            room_types = {}
 
         return {
             "month": month,
@@ -615,6 +627,7 @@ def parse_workbook(file_path: str, month: str, template_type: str | None = None)
             "occupancyLayout": occ_layout,
             "occupancyTotal": occ_total,
             "channels": ch_rows,
+            "rooms": [{"roomNo": no, "roomType": ty} for no, ty in sorted(room_types.items())],
             "channelNights": sum(r["nights"] for r in ch_rows),
             "channelRevenue": _round2(sum(r["revenue"] for r in ch_rows)),
             "rawNameSummary": _make_raw_summary(month, cost_rows, ch_rows),

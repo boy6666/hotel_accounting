@@ -122,7 +122,7 @@ async function doConfirm() {
       rawName: it.rawName, costItemId: it.suggestCostItemId, type: it.suggestType
     }))
     const roomSet = {}
-    ;(prev?.sheets?.occupancy || []).forEach((r) => { roomSet[r.roomNo] = { roomNo: r.roomNo, roomType: '' } })
+    ;(prev?.sheets?.occupancy || []).forEach((r) => { roomSet[r.roomNo] = { roomNo: r.roomNo, roomType: r.roomType || '' } })
     const res = await importApi.confirm(imp.batchId, {
       mappings,
       channelRows: (prev?.sheets?.sales || []).map((c) => ({ rawName: c.rawName, nights: c.nights, revenue: c.revenue })),

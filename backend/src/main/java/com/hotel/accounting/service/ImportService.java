@@ -222,6 +222,13 @@ public class ImportService {
         }
 
         List<Map<String, Object>> occupancy = new ArrayList<>();
+        Map<String, String> roomTypeByNo = new LinkedHashMap<>();
+        for (Map<String, Object> rm : rows(parsed.get("rooms"))) {
+            String no = str(rm.get("roomNo"));
+            if (no != null && !no.isBlank()) {
+                roomTypeByNo.put(no.trim(), str(rm.get("roomType")));
+            }
+        }
         for (Map<String, Object> r : rows(parsed.get("occupancy"))) {
             LocalDate d = parseDate(str(r.get("bizDate")));
             Object nos = r.get("roomNos");
@@ -237,6 +244,7 @@ public class ImportService {
                 e.put("bizDate", d.toString());
                 e.put("date", d.toString());
                 e.put("roomNo", roomNo);
+                e.put("roomType", roomTypeByNo.getOrDefault(roomNo, ""));
                 e.put("known", roomMapper.selectByRoomNo(roomNo) != null);
                 occupancy.add(e);
             }
@@ -406,6 +414,12 @@ public class ImportService {
                 Room room = roomService.findOrCreateRoom(no, roomTypeByNo.getOrDefault(no, null), null);
                 if (isNew) {
                     createdRooms.add(room.getRoomNo());
+                }
+                String ty = roomTypeByNo.get(no);
+                if (ty != null && !ty.isBlank()
+                        && (room.getRoomType() == null || room.getRoomType().isBlank())) {
+                    room.setRoomType(ty); // 已建档但房型为空 → 本次导入补齐（不覆盖手填值）
+                    roomMapper.updateById(room);
                 }
                 dailyOccupiedRoomMapper.insertRow(d, room.getId());
             }
