@@ -129,6 +129,9 @@ def sheet_rank(sheet_title: str) -> tuple:
     # 路客云订单式销售表优先（与『当月销售利润』同名或单独命名都认；两份都有时用订单式）
     if "路客云" in t:
         score_sale += 8
+    # 路客云后台导出的 Sheet 名就叫『订单明细』——直接上传导出原文件也认
+    if "订单明细" in t or "订单" in t:
+        score_sale += 3
     return (score_cost, score_occ, score_sale)
 
 

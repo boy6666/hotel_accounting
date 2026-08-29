@@ -32,9 +32,6 @@ public class TemplateExcelService {
             "预订人", "手机号", "房型", "房型分组", "房间", "入住时间", "离店时间", "入住天数(间夜数)",
             "入住人数", "入住状态", "预定时间", "订单标记", "订单备注", "说明", "金额分摊模式",
             "占库存", "已排房", "计入统计"};
-    /** 隐私列『预订人』『手机号』（0 基 12/13），灰底标注系统不读取（SC-05）。 */
-    private static final int[] LK_PRIVACY_COLS = {12, 13};
-
     public byte[] build() {
         try (Workbook wb = new XSSFWorkbook(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
             costSheet(wb);
@@ -61,14 +58,13 @@ public class TemplateExcelService {
         sheet.setColumnWidth(3, 20 * 256);
     }
 
+    /** ②订单明细 = 与路客云后台导出结构一模一样（Sheet 名/横幅行/表头行位置/30 列），可直接粘贴或整表覆盖。 */
     private void salesSheet(Workbook wb) {
-        Sheet sheet = wb.createSheet("当月销售利润");
-        noteRow(wb, sheet, 0, "当月销售利润（路客云订单导出直用）", true);
-        noteRow(wb, sheet, 1, "粘贴/上传路客云后台导出的【订单明细】(保持表头不变)。仅读取：渠道、入住天数(间夜数)、订单总收入(减佣)、佣金、房间、入住时间、已排房、计入统计。", false);
-        noteRow(wb, sheet, 2, "隐私列『预订人/手机号』系统不读取、不保留、不上传（SC-05）。", false);
-        header(wb, sheet, 3, LK_HEADERS, LK_PRIVACY_COLS);
+        Sheet sheet = wb.createSheet("订单明细");
+        noteRow(wb, sheet, 0, "*金额按天计算，由筛选时段决定。订单原金额可见\"金额备注\"", false);
+        header(wb, sheet, 1, LK_HEADERS);
         for (int i = 0; i < 24; i++) {
-            sheet.createRow(4 + i);
+            sheet.createRow(2 + i);
         }
         for (int i = 0; i < LK_HEADERS.length; i++) {
             sheet.setColumnWidth(i, 14 * 256);

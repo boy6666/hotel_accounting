@@ -51,7 +51,8 @@ def _split_rooms(v) -> list[str]:
     parts = re.split(r"[\s,，、/;；]+", s)
     out = []
     for p in parts:
-        p = p.strip()
+        # 路客云导出的房间值带『房间』前缀（如 房间202）→ 还原为纯房号
+        p = re.sub(r"^(?:客房|房间|房)(?=[A-Za-z\d])", "", p).strip()
         if p and p not in out:
             out.append(p)
     return out
@@ -584,8 +585,9 @@ def parse_workbook(file_path: str, month: str, template_type: str | None = None)
 
     try:
         sheets = pick_sheets(wb)
-        # 必填：当月成本 + 当月销售利润；『每日房态』仅手工(非路客云)模式必须（见下）
-        for key, label in (("cost", "当月成本"), ("channel", "当月销售利润")):
+        # 必填：当月成本 + 当月销售利润（或路客云导出的『订单明细』）；
+        # 『每日房态』仅手工(非路客云)模式必须（见下）
+        for key, label in (("cost", "当月成本"), ("channel", "当月销售利润/订单明细")):
             if sheets[key] is None:
                 raise ApiError(PARSE_ERROR, f"模板缺少工作表：{label}", HTTP_UNPROCESSABLE)
 
