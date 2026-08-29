@@ -111,14 +111,45 @@ docker compose down -v          # 停止并清空数据（含数据库！慎用�
 
 ## 部署到远端服务器
 
-```bash
-# 服务器上（Ubuntu/Debian 示例，需先装 Docker）
-curl -fsSL https://get.docker.com | sh
+### Windows 服务器
 
+```powershell
+# 1. 安装 Docker Desktop（需 WSL2 后端）并启动；安装 Git for Windows
+winget install Docker.DockerDesktop Git.Git
+
+# 2. 克隆代码
 git clone https://github.com/boy6666/hotel_accounting.git
 cd hotel_accounting
-cp .env.example .env && vim .env   # 修改密码/密钥
+
+# 3. 配置环境变量（PowerShell）
+Copy-Item .env.example .env
+notepad .env      # 修改 MYSQL_ROOT_PASSWORD、JWT_SECRET，可选填 DEEPSEEK_API_KEY
+
+# 4. 构建并启动（首次 5-10 分钟，之后有缓存很快）
 docker compose up -d --build
+
+# 5. 验证
+docker compose ps                        # 四个服务 running/healthy
+curl http://localhost:8080/api/health    # {"code":0,...}
+# 浏览器打开 http://<服务器IP>:8080 ，账号 admin / admin123
+
+# 放行防火墙端口（管理员 PowerShell；改端口则同步修改）
+netsh advfirewall firewall add rule name="hotel-accounting" dir=in action=allow protocol=TCP localport=8080
+```
+
+### Linux 服务器（Ubuntu/Debian）
+
+```bash
+curl -fsSL https://get.docker.com | sh
+git clone https://github.com/boy6666/hotel_accounting.git && cd hotel_accounting
+cp .env.example .env && vim .env
+docker compose up -d --build
+```
+
+### 后续更新
+
+```bash
+git pull && docker compose up -d --build   # 重建变更的镜像并滚动重启
 ```
 
 生产建议：
